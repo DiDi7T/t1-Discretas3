@@ -1,7 +1,8 @@
 from detector import detect
-from classifier import classify
-# ── Casos de prueba ───────────────────────────────────────────────
-cases = [
+from classifier import clasificar
+
+# ── Casos de prueba del detector ──────────────────────────────────
+detector_cases = [
     {
         "name": "Hardcoded password",
         "code": 'password = "admin123"',
@@ -9,7 +10,7 @@ cases = [
     },
     {
         "name": "AWS API Key",
-        "code": 'api_key = "AKIA1234567890ABCDEF"',  # 16 chars después de AKIA
+        "code": 'api_key = "AKIA1234567890ABCDEF"',
         "expect": ["API_KEY"],
     },
     {
@@ -34,22 +35,78 @@ cases = [
     },
 ]
 
-# ── Ejecutar pruebas ──────────────────────────────────────────────
-def run_tests():
-    passed = 0
-    failed = 0
+# ── Casos de prueba del clasificador ─────────────────────────────
+classifier_cases = [
+    {
+        "name": "Sin tokens → Seguro",
+        "tokens": [],
+        "expect": "Seguro",
+    },
+    {
+        "name": "Solo password → Necesita Revisión",
+        "tokens": [{"label": "HARDCODED_PASSWORD", "line": 1}],
+        "expect": "Necesita Revisión",
+    },
+    {
+        "name": "Password + print → Violación de Seguridad",
+        "tokens": [
+            {"label": "HARDCODED_PASSWORD", "line": 1},
+            {"label": "PRINT_CALL",         "line": 2},
+        ],
+        "expect": "Violación de Seguridad",
+    },
+    {
+        "name": "Solo TODO → Necesita Revisión",
+        "tokens": [{"label": "TODO_COMMENT", "line": 1}],
+        "expect": "Necesita Revisión",
+    },
+    {
+        "name": "API key + print → Violación de Seguridad",
+        "tokens": [
+            {"label": "API_KEY",    "line": 1},
+            {"label": "PRINT_CALL", "line": 2},
+        ],
+        "expect": "Violación de Seguridad",
+    },
+    {
+        "name": "URL sospechosa → Necesita Revisión",
+        "tokens": [{"label": "SUSPICIOUS_URL", "line": 1}],
+        "expect": "Necesita Revisión",
+    },
+    {
+        "name": "IPv4 + TODO → Necesita Revisión",
+        "tokens": [
+            {"label": "IPv4_ADDRESS", "line": 1},
+            {"label": "TODO_COMMENT", "line": 2},
+        ],
+        "expect": "Necesita Revisión",
+    },
+    {
+        "name": "Violación se mantiene con más tokens",
+        "tokens": [
+            {"label": "API_KEY",            "line": 1},
+            {"label": "PRINT_CALL",         "line": 2},
+            {"label": "HARDCODED_PASSWORD", "line": 3},
+        ],
+        "expect": "Violación de Seguridad",
+    },
+]
+
+
+# ── Ejecutar pruebas del detector ─────────────────────────────────
+def run_detector_tests():
+    passed = failed = 0
 
     print("=" * 50)
     print("        CHOMSKY — Detector Tests")
     print("=" * 50)
 
-    for case in cases:
+    for case in detector_cases:
         tokens = detect(case["code"])
         found_labels = [t["label"] for t in tokens]
         ok = all(e in found_labels for e in case["expect"])
 
-        status = "✅ PASS" if ok else "❌ FAIL"
-        print(f"{status}  {case['name']}")
+        print(f"{'✅ PASS' if ok else '❌ FAIL'}  {case['name']}")
         if not ok:
             print(f"       Expected: {case['expect']}")
             print(f"       Got:      {found_labels}")
@@ -61,40 +118,18 @@ def run_tests():
     print(f"Results: {passed} passed, {failed} failed")
 
 
-
-
+# ── Ejecutar pruebas del clasificador ────────────────────────────
 def run_classifier_tests():
-    cases = [
-        {
-            "name": "Safe code",
-            "tokens": [],
-            "expect": "Safe",
-        },
-        {
-            "name": "Solo password → Needs Review",
-            "tokens": [{"label": "HARDCODED_PASSWORD"}],
-            "expect": "Needs Review",
-        },
-        {
-            "name": "Password + print → Violation",
-            "tokens": [{"label": "HARDCODED_PASSWORD"}, {"label": "PRINT_CALL"}],
-            "expect": "Security Violation",
-        },
-        {
-            "name": "Solo TODO → Needs Review",
-            "tokens": [{"label": "TODO_COMMENT"}],
-            "expect": "Needs Review",
-        },
-    ]
+    passed = failed = 0
 
     print("=" * 50)
     print("      CHOMSKY — Classifier Tests")
     print("=" * 50)
 
-    passed = failed = 0
-    for case in cases:
-        result = classify(case["tokens"])
+    for case in classifier_cases:
+        result = clasificar(case["tokens"])
         ok = result == case["expect"]
+
         print(f"{'✅ PASS' if ok else '❌ FAIL'}  {case['name']}")
         if not ok:
             print(f"       Expected: {case['expect']}")
@@ -107,8 +142,7 @@ def run_classifier_tests():
     print(f"Results: {passed} passed, {failed} failed")
 
 
-
 if __name__ == "__main__":
-    run_tests()
+    run_detector_tests()
     print()
     run_classifier_tests()

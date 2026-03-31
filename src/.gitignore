@@ -1,0 +1,11 @@
+# Archivos de VSCode
+.vscode/
+
+# Cachés de Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Logs y temporales
+*.log
+.pytest_cache/

@@ -1,59 +1,88 @@
 from pyformlang.finite_automaton import DeterministicFiniteAutomaton, State, Symbol
 
-def build_dfa() -> DeterministicFiniteAutomaton:
+# ── 1. Estados ────────────────────────────────────────────────
+INICIO    = State("Inicio")
+SECRETO   = State("Secreto")    # encontró contraseña o API key
+REVISAR   = State("Revisar")    # algo sospechoso pero no crítico
+VIOLACION = State("Violacion")  # secreto + print → peligro real
+
+
+# ── 2. Construir el DFA ───────────────────────────────────────
+
+def construir_dfa() -> DeterministicFiniteAutomaton:
     dfa = DeterministicFiniteAutomaton()
 
-    # ── Estados ───────────────────────────────────────────────────
-    start       = State("Start")
-    found_secret = State("FoundSecret")
-    needs_review = State("NeedsReview")
-    violation   = State("Violation")
+    dfa.add_start_state(INICIO)
+    dfa.add_final_state(REVISAR)
+    dfa.add_final_state(VIOLACION)
 
-    dfa.add_start_state(start)
-    dfa.add_final_state(State("Safe"))
-    dfa.add_final_state(needs_review)
-    dfa.add_final_state(violation)
+    # Desde Inicio
+    dfa.add_transition(INICIO, Symbol("HARDCODED_PASSWORD"), SECRETO)
+    dfa.add_transition(INICIO, Symbol("API_KEY"),            SECRETO)
+    dfa.add_transition(INICIO, Symbol("TODO_COMMENT"),       REVISAR)
+    dfa.add_transition(INICIO, Symbol("IPv4_ADDRESS"),       REVISAR)
+    dfa.add_transition(INICIO, Symbol("SUSPICIOUS_URL"),     REVISAR)
+    dfa.add_transition(INICIO, Symbol("PRINT_CALL"),         REVISAR)
 
-    # ── Transiciones ──────────────────────────────────────────────
-    secrets = ["HARDCODED_PASSWORD", "API_KEY"]
-    reviews = ["TODO_COMMENT", "IPv4_ADDRESS", "SUSPICIOUS_URL"]
+    # Desde Secreto
+    dfa.add_transition(SECRETO, Symbol("HARDCODED_PASSWORD"), SECRETO)
+    dfa.add_transition(SECRETO, Symbol("API_KEY"),            SECRETO)
+    dfa.add_transition(SECRETO, Symbol("PRINT_CALL"),         VIOLACION)  # ← peligro
 
-    for s in secrets:
-        dfa.add_transition(start,        Symbol(s), found_secret)
-        dfa.add_transition(found_secret, Symbol(s), found_secret)
-        dfa.add_transition(needs_review, Symbol(s), found_secret)
+    # Desde Revisar
+    dfa.add_transition(REVISAR, Symbol("HARDCODED_PASSWORD"), SECRETO)
+    dfa.add_transition(REVISAR, Symbol("API_KEY"),            SECRETO)
+    dfa.add_transition(REVISAR, Symbol("TODO_COMMENT"),       REVISAR)
+    dfa.add_transition(REVISAR, Symbol("IPv4_ADDRESS"),       REVISAR)
+    dfa.add_transition(REVISAR, Symbol("SUSPICIOUS_URL"),     REVISAR)
+    dfa.add_transition(REVISAR, Symbol("PRINT_CALL"),         REVISAR)
 
-    for r in reviews:
-        dfa.add_transition(start,        Symbol(r), needs_review)
-        dfa.add_transition(needs_review, Symbol(r), needs_review)
-
-    dfa.add_transition(found_secret, Symbol("PRINT_CALL"),  violation)
-    dfa.add_transition(start,        Symbol("PRINT_CALL"),  needs_review)
-    dfa.add_transition(needs_review, Symbol("PRINT_CALL"),  needs_review)
-    dfa.add_transition(violation,    Symbol("PRINT_CALL"),  violation)
+    # Desde Violacion (estado trampa)
+    dfa.add_transition(VIOLACION, Symbol("HARDCODED_PASSWORD"), VIOLACION)
+    dfa.add_transition(VIOLACION, Symbol("API_KEY"),            VIOLACION)
+    dfa.add_transition(VIOLACION, Symbol("PRINT_CALL"),         VIOLACION)
 
     return dfa
 
 
-def classify(tokens: list[dict]) -> str:
+# ── 3. Clasificar tokens que vienen del detector ──────────────
+
+def clasificar(tokens: list[dict]) -> str:
+    """
+    Recibe la lista de tokens que devuelve detect() del detector
+    y los recorre con el DFA uno a uno.
+
+    Cada token debe tener al menos la clave "label".
+    Retorna: "Seguro", "Necesita Revisión" o "Violación de Seguridad".
+
+    Uso esperado:
+        from detector import detect
+        from classifier import clasificar
+
+        tokens = detect(codigo_fuente)
+        resultado = clasificar(tokens)
+    """
     if not tokens:
-        return "Safe"
+        return "Seguro"
 
-    dfa = build_dfa()
-    labels = [Symbol(t["label"]) for t in tokens]
+    dfa           = construir_dfa()
+    estado_actual = INICIO
 
-    current = State("Start")
-    for symbol in labels:
-        next_states = dfa._transition_function(current, symbol)
-        if not next_states:
-            break
-        current = next(iter(next_states))
+    for token in tokens:
+        simbolo    = Symbol(token["label"])
+        siguientes = dfa._transition_function(estado_actual, simbolo)
 
-    state_name = str(current)
+        if not siguientes:
+            print(f"  línea {token['line']:>3} [{token['label']}]  →  sin transición, queda en {estado_actual}")
+            continue
 
-    if state_name == "Violation":
-        return "Security Violation"
-    elif state_name in ("NeedsReview", "FoundSecret"):  # <- agrega FoundSecret aquí
-        return "Needs Review"
+        estado_actual = next(iter(siguientes))
+        print(f"  línea {token['line']:>3} [{token['label']}]  →  {estado_actual}")
+
+    nombre = str(estado_actual)
+    if nombre == "Violacion":
+        return "Violación de Seguridad"
+    elif nombre in ("Secreto", "Revisar"):
+        return "Necesita Revisión"
     else:
-        return "Safe"
+        return "Seguro"
