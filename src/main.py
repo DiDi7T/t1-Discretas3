@@ -1,6 +1,7 @@
 from detector       import detect
 from classifier     import clasificar
 from transformation import transformar, describir_fst
+from validation import validar, describir_cfg
 
 DEMO_CODE = '''\
 password = "admin123"
@@ -9,6 +10,17 @@ print(password)
 host = "192.168.1.100"
 # TODO: eliminar antes de producción
 '''
+
+DEMO_CONFIG = """\
+[database] {
+    host = localhost;
+    password = ${DB_PASSWORD};
+}
+[api] {
+    token = ${API_TOKEN};
+    debug = false;
+}
+"""
 
 
 def analizar(source_code: str) -> None:
@@ -54,6 +66,19 @@ def analizar(source_code: str) -> None:
         print(f"  {i:>3} │ {line}")
 
     print(f"\n{separator}")
+
+    # ── 4. Validation ────────────────────────────────────────
+    print("\n [Módulo 4] VALIDACIÓN (CFG)")
+    val_result = validar(DEMO_CONFIG)
+    print(f"  Resultado: {'✅ Válido' if val_result.valid else '❌ Inválido'}")
+    if val_result.errors:
+        for e in val_result.errors:
+            print(f"  ✗ {e}")
+    if val_result.warnings:
+        for w in val_result.warnings:
+            print(f"  ⚠ {w}")
+
+
 
 
 if __name__ == "__main__":

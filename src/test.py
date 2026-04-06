@@ -1,6 +1,7 @@
 from detector import detect
 from classifier import clasificar
 from transformation import transformar
+from validation import validar
 
 
 # ── Casos de prueba del detector ──────────────────────────────────
@@ -144,11 +145,6 @@ def run_classifier_tests():
     print(f"Results: {passed} passed, {failed} failed")
 
 
-if __name__ == "__main__":
-    run_detector_tests()
-    print()
-    run_classifier_tests()
-
 
 # ── Casos de prueba del transductor ──────────────────────────────────
 transformation_cases = [
@@ -248,9 +244,77 @@ def run_transformation_tests():
     print(f"Results: {passed} passed, {failed} failed")
 
 
+ 
+
+
+
+
+
+def run_validation_tests():
+    cases = [
+        {
+            "name": "Config segura con EnvReference",
+            "config": 'password = ${APP_PASSWORD};\nhost = localhost;',
+            "expect_valid": True,
+            "expect_errors": 0,
+        },
+        {
+            "name": "Config insegura — password plano",
+            "config": 'password = "admin123";',
+            "expect_valid": False,
+            "expect_errors": 1,
+        },
+        {
+            "name": "Sección anidada segura",
+            "config": '[database] { password = ${DB_PASSWORD}; host = localhost; }',
+            "expect_valid": True,
+            "expect_errors": 0,
+        },
+        {
+            "name": "Sección anidada insegura",
+            "config": '[database] { password = "admin123"; }',
+            "expect_valid": False,
+            "expect_errors": 1,
+        },
+        {
+            "name": "Sintaxis inválida",
+            "config": 'password ${APP_PASSWORD}',  # falta el =
+            "expect_valid": False,
+            "expect_errors": 1,
+        },
+    ]
+
+    print("=" * 50)
+    print("     CHOMSKY — Validation Tests (CFG)")
+    print("=" * 50)
+
+    passed = failed = 0
+    for case in cases:
+        result = validar(case["config"])
+        ok = (
+            result.valid == case["expect_valid"] and
+            len(result.errors) == case["expect_errors"]
+        )
+        print(f"{'✅ PASS' if ok else '❌ FAIL'}  {case['name']}")
+        if not ok:
+            print(f"       Valid esperado: {case['expect_valid']} → got {result.valid}")
+            print(f"       Errores esperados: {case['expect_errors']} → got {len(result.errors)}")
+            if result.errors:
+                for e in result.errors:
+                    print(f"       ⚠ {e}")
+            failed += 1
+        else:
+            passed += 1
+
+    print("=" * 50)
+    print(f"Results: {passed} passed, {failed} failed")
+    
 if __name__ == "__main__":
     run_detector_tests()
     print()
     run_classifier_tests()
     print()
-    run_transformation_tests()   
+    run_transformation_tests()
+    print()
+    run_validation_tests()
+    print()
