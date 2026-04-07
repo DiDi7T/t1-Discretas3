@@ -13,6 +13,8 @@ _TRANSITIONS: dict[tuple[str, str], str] = {
     (INICIO,      "TODO_COMMENT"):       INICIO,
     (INICIO,      "IPv4_ADDRESS"):       INICIO,
     (INICIO,      "SUSPICIOUS_URL"):     INICIO,
+    (INICIO,      "ENV_PLAIN_SECRET"): CON_SECRETO,
+    (INICIO,      "YAML_PLAIN_SECRET"): CON_SECRETO,
 
     (CON_SECRETO, "HARDCODED_PASSWORD"): CON_SECRETO,
     (CON_SECRETO, "API_KEY"):            CON_SECRETO,
@@ -20,6 +22,8 @@ _TRANSITIONS: dict[tuple[str, str], str] = {
     (CON_SECRETO, "TODO_COMMENT"):       CON_SECRETO,
     (CON_SECRETO, "IPv4_ADDRESS"):       CON_SECRETO,
     (CON_SECRETO, "SUSPICIOUS_URL"):     CON_SECRETO,
+    (CON_SECRETO, "ENV_PLAIN_SECRET"): CON_SECRETO,
+    (CON_SECRETO, "YAML_PLAIN_SECRET"): CON_SECRETO,
 
     (VIOLACION,   "HARDCODED_PASSWORD"): VIOLACION,
     (VIOLACION,   "API_KEY"):            VIOLACION,
@@ -27,6 +31,9 @@ _TRANSITIONS: dict[tuple[str, str], str] = {
     (VIOLACION,   "TODO_COMMENT"):       VIOLACION,
     (VIOLACION,   "IPv4_ADDRESS"):       VIOLACION,
     (VIOLACION,   "SUSPICIOUS_URL"):     VIOLACION,
+    (VIOLACION,   "ENV_PLAIN_SECRET"): VIOLACION,
+    (VIOLACION,   "YAML_PLAIN_SECRET"): VIOLACION,
+
 }
 
 
@@ -166,6 +173,30 @@ def transformar(source_code: str, tokens: list[dict]) -> TransformationResult:
                 f"[línea {line_no}] PRINT_CALL{alerta}: comentado por seguridad "
                 f"(δ: {prev} → {estado})"
             )
+        elif label == "ENV_PLAIN_SECRET":
+            assign_m = re.match(r'([A-Z_a-z][A-Z_a-z0-9]*)=', original_line)
+            if assign_m:
+                var_name = assign_m.group(1)
+                lines[line_idx] = f'{var_name}=${{{var_name}}}'
+                seen_lines.add(line_idx)
+                changes.append(
+                    f'[línea {line_no}] ENV_PLAIN_SECRET: '
+                    f'`{var_name}=...` → `{var_name}=${{{var_name}}}` '
+                    f"(δ: {prev} → {estado})"
+                )
+
+        elif label == "YAML_PLAIN_SECRET":
+            assign_m = re.match(r'([ \t]*)([a-zA-Z_][a-zA-Z0-9_]*):', original_line)
+            if assign_m:
+                indent   = assign_m.group(1)
+                var_name = assign_m.group(2).upper()
+                lines[line_idx] = f'{assign_m.group(1)}{assign_m.group(2)}: ${{{var_name}}}'
+                seen_lines.add(line_idx)
+                changes.append(
+                    f'[linea {line_no}] YAML_PLAIN_SECRET: '
+                    f'`{assign_m.group(2)}: ...` -> `{assign_m.group(2)}: ${{{var_name}}}` '
+                    f"(delta: {prev} -> {estado})"
+                )
 
         
 
@@ -190,8 +221,8 @@ def describir_fst() -> str:
         "FST — Finite State Transducer (7-tupla)\n"
         "=========================================\n"
         "  Q  = { INICIO, CON_SECRETO, VIOLACION }\n"
-        "  Σ  = { HARDCODED_PASSWORD, API_KEY, PRINT_CALL,\n"
-        "          TODO_COMMENT, IPv4_ADDRESS, SUSPICIOUS_URL }\n"
+            "  Σ  = { HARDCODED_PASSWORD, API_KEY, PRINT_CALL,\n"
+            "          TODO_COMMENT, IPv4_ADDRESS, SUSPICIOUS_URL, ENV_PLAIN_SECRET, YAML_PLAIN_SECRET }\n"
         "  Γ  = código Python transformado (strings)\n"
         "  q0 = INICIO\n"
         "  F  = { CON_SECRETO, VIOLACION }\n"

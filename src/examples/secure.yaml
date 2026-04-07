@@ -1,0 +1,12 @@
+database:
+  host: localhost
+  password: ${DB_PASSWORD}
+  port: 5432
+
+api:
+  token: ${API_TOKEN}
+  url: https://api.example.com
+
+app:
+  debug: false
+  env: production

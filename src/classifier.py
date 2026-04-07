@@ -23,12 +23,15 @@ def construir_dfa() -> DeterministicFiniteAutomaton:
     dfa.add_transition(INICIO, Symbol("IPv4_ADDRESS"),       REVISAR)
     dfa.add_transition(INICIO, Symbol("SUSPICIOUS_URL"),     REVISAR)
     dfa.add_transition(INICIO, Symbol("PRINT_CALL"),         REVISAR)
+    dfa.add_transition(INICIO,    Symbol("ENV_PLAIN_SECRET"), SECRETO)
+    dfa.add_transition(INICIO,    Symbol("YAML_PLAIN_SECRET"), SECRETO)
 
     # Desde Secreto
     dfa.add_transition(SECRETO, Symbol("HARDCODED_PASSWORD"), SECRETO)
     dfa.add_transition(SECRETO, Symbol("API_KEY"),            SECRETO)
     dfa.add_transition(SECRETO, Symbol("PRINT_CALL"),         VIOLACION)  # ← peligro
-
+    dfa.add_transition(SECRETO,   Symbol("ENV_PLAIN_SECRET"), SECRETO)
+    dfa.add_transition(SECRETO,   Symbol("YAML_PLAIN_SECRET"), SECRETO)
     # Desde Revisar
     dfa.add_transition(REVISAR, Symbol("HARDCODED_PASSWORD"), SECRETO)
     dfa.add_transition(REVISAR, Symbol("API_KEY"),            SECRETO)
@@ -36,11 +39,15 @@ def construir_dfa() -> DeterministicFiniteAutomaton:
     dfa.add_transition(REVISAR, Symbol("IPv4_ADDRESS"),       REVISAR)
     dfa.add_transition(REVISAR, Symbol("SUSPICIOUS_URL"),     REVISAR)
     dfa.add_transition(REVISAR, Symbol("PRINT_CALL"),         REVISAR)
+    dfa.add_transition(REVISAR,   Symbol("ENV_PLAIN_SECRET"), SECRETO)
+    dfa.add_transition(REVISAR,   Symbol("YAML_PLAIN_SECRET"), SECRETO)
 
     # Desde Violacion (estado trampa)
     dfa.add_transition(VIOLACION, Symbol("HARDCODED_PASSWORD"), VIOLACION)
     dfa.add_transition(VIOLACION, Symbol("API_KEY"),            VIOLACION)
     dfa.add_transition(VIOLACION, Symbol("PRINT_CALL"),         VIOLACION)
+    dfa.add_transition(VIOLACION, Symbol("ENV_PLAIN_SECRET"), VIOLACION)
+    dfa.add_transition(VIOLACION, Symbol("YAML_PLAIN_SECRET"), VIOLACION)
 
     return dfa
 

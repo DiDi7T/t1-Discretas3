@@ -295,7 +295,7 @@ def run_validation_tests():
             result.valid == case["expect_valid"] and
             len(result.errors) == case["expect_errors"]
         )
-        print(f"{'✅ PASS' if ok else '❌ FAIL'}  {case['name']}")
+        print(f"{' PASS' if ok else ' FAIL'}  {case['name']}")
         if not ok:
             print(f"       Valid esperado: {case['expect_valid']} → got {result.valid}")
             print(f"       Errores esperados: {case['expect_errors']} → got {len(result.errors)}")
